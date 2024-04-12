@@ -2,7 +2,7 @@ import discord
 import threading
 import time
 
-TOKEN = '[YOUR TOKEN: SEE README.MD]'
+TOKEN = 'YOURTOKEN'
 TIMEOUT = 1200 #in seconds; a thread will not timeout before TIMEOUT seconds and will always timeout within TIMEOUT * 2 seconds
 # as long as the bot is being used (since timeout checks aren't made when it isn't).
 

@@ -7,7 +7,7 @@ SlapChop permits players to secretly select their preferred chop. When all playe
 To use the developer's hosted version, you can invite it your server with:
 https://discord.com/oauth2/authorize?client_id=1228038244550311969&permissions=274945018880&scope=bot
 
-If you are having difficulties because the developer is being lazy about keeping his hosted version up, you can create your own bot through the Discord Developer Portal; once you have the bot's token, you can insert it into slapshot.py, run it, and then invite *your* version of SlapChop to your server.
+If you are having difficulties because the developer is being lazy about keeping his hosted version up, you can create your own bot through the Discord Developer Portal; once you have the bot's token, create a file called TOKEN (no extensions) containing only the token. Run run_slapchop.bat, which will create and run a new Slapchop python file containing your token, and then invite *your* version of SlapChop to your server.
 
 ## Using SlapChop
 
