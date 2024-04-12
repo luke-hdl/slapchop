@@ -12,7 +12,7 @@ If you are having difficulties because the developer is being lazy about keeping
 ## Using SlapChop
 
 ### Initial Setup
-> @SlapChop#0552 setup
+> @SlapChop#0552 start
 
 This command changes SlapChop's nickname to 'Your Buddy SlapChop'. By default, Discord gives bots a role with the same name as the bot's name, which can cause user confusion when users accidentally @ the role, instead of the bot itself. Giving itself a nickname fixes this. Future versions may perform additional setup. (Replace @SlapChop#0552 with your instance of SlapChop's name, if you're not using the developer-hosted version.)
 
