@@ -161,7 +161,7 @@ async def on_message(message):
     if len(message_info) < 2 and message.content.startswith('help'):
         await message.channel.send('Make a static: ' + client.user.mention + " static")
         await message.channel.send(
-            'Make a challenge (you are automatically the aggressor on the challenge you send, and they\'re the defender): ' + client.user.mention + " challenge @enemy1 @enemy2 etc")
+            'Make a challenge (you are automatically the aggressor on the challenge you send, and they\'re the defender): ' + client.user.mention + " challenge challenge_name @enemy1 @enemy2 etc")
         await message.channel.send(
             'Reply to a challenge: follow the directions in the challenge message sent by me :)')
         await message.channel.send(
