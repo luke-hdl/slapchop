@@ -5,8 +5,9 @@ import discord
 import re
 
 TOKEN = 'YOURTOKEN'
-TIMEOUT = 1200  # in seconds; a thread will not timeout before TIMEOUT seconds and will always timeout within TIMEOUT * 2 seconds
+TIMEOUT = 1200  # in seconds; a thread will not time out before TIMEOUT seconds and will always time out within TIMEOUT * 2 seconds
 # as long as the bot is being used (since timeout checks aren't made when it isn't).
+DEFAULT_CHALLENGE_NAMES = ['angle', 'ant', 'apple', 'arch', 'arm', 'army', 'baby', 'bag', 'ball', 'band', 'basin', 'basket', 'bath', 'bed', 'bee', 'bell', 'berry', 'bird', 'blade', 'board', 'boat', 'bone', 'book', 'boot', 'bottle', 'box', 'boy', 'brain', 'brake', 'branch', 'brick', 'bridge', 'brush', 'bucket', 'bulb', 'button', 'cake', 'camera', 'card', 'cart', 'carriage', 'cat', 'chain', 'cheese', 'chest', 'chin', 'church', 'circle', 'clock', 'cloud', 'coat', 'collar', 'comb', 'cord', 'cow', 'cup', 'curtain', 'cushion', 'dog', 'door', 'drain', 'drawer', 'dress', 'drop', 'ear', 'egg', 'engine', 'eye', 'face', 'farm', 'feather', 'finger', 'fish', 'flag', 'floor', 'fly', 'foot', 'fork', 'fowl', 'frame', 'garden', 'girl', 'glove', 'goat', 'gun', 'hair', 'hammer', 'hand', 'hat', 'head', 'heart', 'hook', 'horn', 'horse', 'hospital', 'house', 'island', 'jewel', 'kettle', 'key', 'knee', 'knife', 'knot', 'leaf', 'leg', 'library', 'line', 'lip', 'lock', 'map', 'match', 'monkey', 'moon', 'mouth', 'muscle', 'nail', 'neck', 'needle', 'nerve', 'net', 'nose', 'nut', 'office', 'orange', 'oven', 'parcel', 'pen', 'pencil', 'picture', 'pig', 'pin', 'pipe', 'plane', 'plate', 'plough', 'pocket', 'pot', 'potato', 'prison', 'pump', 'rail', 'rat', 'receipt', 'ring', 'rod', 'roof', 'root', 'sail', 'school', 'scissors', 'screw', 'seed', 'sheep', 'shelf', 'ship', 'shirt', 'shoe', 'skin', 'skirt', 'snake', 'sock', 'spade', 'sponge', 'spoon', 'spring', 'square', 'stamp', 'star', 'station', 'stem', 'stick', 'stocking', 'stomach', 'store', 'street', 'sun', 'table', 'tail', 'thread', 'throat', 'thumb', 'ticket', 'toe', 'tongue', 'tooth', 'town', 'train', 'tray', 'tree', 'trousers', 'umbrella', 'wall', 'watch', 'wheel', 'whip', 'whistle', 'window', 'wing', 'wire', 'worm']
 
 intents = discord.Intents.default()
 
@@ -24,19 +25,19 @@ def clean_up_and_split(message):
     dirty_split = re.split("[ \t]{1,1000}", message.strip())
     clean_split = []
 
-    concatting = False
+    concatenating = False
     concat_result = ""
     for part in dirty_split:
-        if concatting:
+        if concatenating:
             if part.endswith('"'):
                 concat_result += part
                 clean_split.append(concat_result)
-                concatting = False
+                concatenating = False
             else:
                 concat_result += part + " "
         elif part.startswith('"'):
             concat_result += part + " "
-            concatting = True
+            concatenating = True
         else:
             clean_split.append(part)
 
@@ -49,6 +50,12 @@ def get_code_map_if_active(code):
     elif code in expiring_challenges:
         return expiring_challenges
 
+def get_code_with_number(code):
+    global counter_for_code_duplication
+    counter_for_code_duplication += 1
+    if counter_for_code_duplication > 99999:
+        counter_for_code_duplication = 0
+    return code + "-" + str(counter_for_code_duplication)
 
 def expire_challenges():
     global expiring_challenges
@@ -58,12 +65,12 @@ def expire_challenges():
     recent_challenges = {}
 
 def add_response_from_user(code, user, response, bid):
-    map = get_code_map_if_active(code)
-    if map is None:
+    code_map = get_code_map_if_active(code)
+    if code_map is None:
         return "Challenge " + code + " not found."
     if bid is not None and bid != "" and re.fullmatch("[0-9]*", bid) is None:
         return "Bid must be a number (no decimals allowed)."
-    details = map[code]
+    details = code_map[code]
     for challenge in details:
         if type(challenge) is list and challenge[0].id == user.id:
             if challenge[1] is None:
@@ -77,10 +84,20 @@ def add_response_from_user(code, user, response, bid):
                 return "You've already responded to " + code + "; responses are final."
     return "You aren't part of this challenge."
 
+def get_default_challenge_name():
+    tries = 0
+    code = ""
+    while tries < 200: #Not really efficient, but RAM, not CPU, is by far the limiting resource with my current hosting.
+        code = DEFAULT_CHALLENGE_NAMES[random.randint(0, len(DEFAULT_CHALLENGE_NAMES))]
+        if get_code_map_if_active(code) is None:
+            return code
+        tries += 1
+    return get_code_with_number(code)
+
 
 async def post_challenge_results(code):
-    map = get_code_map_if_active(code)
-    details = map[code]
+    code_map = get_code_map_if_active(code)
+    details = code_map[code]
     initial_challenge_result = "Challenge " + code + " is complete!"
     challenge = details[1]
     have_tied = False
@@ -111,7 +128,7 @@ async def post_challenge_results(code):
                     initial_challenge_result += " A tie occurred, but they did not declare a bid."
         iterator += 1
     await details[0].send(initial_challenge_result + description)
-    del map[code]
+    del code_map[code]
 
 async def post_help_tips(channel):
     await channel.send('Make a static: ' + client.user.mention + " static")
@@ -122,10 +139,10 @@ async def post_help_tips(channel):
             'More detailed guidance is available at: https://github.com/luke-hdl/slapchop/blob/main/README.md')
 
 async def check_if_responses_are_filled_out(code, sender_channel):
-    map = get_code_map_if_active(code)
-    if map is None:
+    code_map = get_code_map_if_active(code)
+    if code_map is None:
         return  # something wrong has happened.
-    details = map[code]
+    details = code_map[code]
     for challenge in details:
         if type(challenge) is list and challenge[1] is None:
             await sender_channel.send(
@@ -144,7 +161,6 @@ async def on_ready():
 async def on_message(message):
     global timer
     global last_time
-    global counter_for_code_duplication
     with timer_lock:
         timer += time.time() - last_time
         last_time = time.time()
@@ -187,18 +203,19 @@ async def on_message(message):
                 'A challenge needs at least two people! Make sure to @ your rivals at the end of the message.')
             return
         code = message_info[2]
+        code_is_mention = re.fullmatch("<@[0-9]*>", code) is not None
         if re.match(".*<.*:[0-9]{15,1000}>.*", code) is not None:
             await message.channel.send('Sorry, SlapChop doesn\'t support custom server emojis. (Sometimes, I might mistakenly think a long code with a lot of numbers is a custom emoji. Codes that long aren\'t allowed either, though.)')
-        elif len(code) > 17:
+        elif not code_is_mention and len(code) > 17:
             await message.channel.send(
                 'Codes should be 20 characters or shorter. (Be aware that Discord emojis count for more than one, depending on their "name" - for instance, a :smile: is 7.)')
         else:
             success_message = ""
-            counter_for_code_duplication += 1
-            if counter_for_code_duplication > 99999:
-                counter_for_code_duplication = 0
-            if code in recent_challenges or code in expiring_challenges:
-                code = code + "-" + str(counter_for_code_duplication)
+            if code_is_mention: #the code starting with a mention means no code was specified
+                code = get_default_challenge_name()
+                success_message += '**ALERT**: You didn\'t name your challenge, or you named it after a mention. I\'ve named it ***' + code + '*** for you. When you issue a challenge, you can name it yourself by putting the name between the word "challenge" and the names of your friends. Names can\'t be mentions, though (I\'ll think that\'s who you\'re challenging!) \r\n'
+            elif code in recent_challenges or code in expiring_challenges:
+                code = get_code_with_number(code)
                 success_message += '**ALERT**: Your challenge code is in use somewhere else. I\'ve automatically renamed it to ' + code + ' in my memory.\r\n'
             recent_challenges[code] = [message.channel]
             success_message += "Challenge opened between: "
