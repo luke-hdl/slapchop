@@ -31,4 +31,4 @@ jobs:
 
       - name: Start the server in a fresh screen
         if: ${{ always() }}
-        run: ssh staging 'screen -S slapchop ~/git/run_slapchop.bat'
+        run: ssh staging 'screen -dmS slapchop ~/git/run_slapchop.bat'
