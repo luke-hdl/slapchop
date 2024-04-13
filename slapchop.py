@@ -4,7 +4,7 @@ import random
 import discord
 import re
 
-TOKEN = 'YOURTOKEN'
+TOKEN = ''
 TIMEOUT = 1200  # in seconds; a thread will not timeout before TIMEOUT seconds and will always timeout within TIMEOUT * 2 seconds
 # as long as the bot is being used (since timeout checks aren't made when it isn't).
 
@@ -18,19 +18,10 @@ expiring_challenges = {}
 timer = 0
 last_time = 0
 timer_lock = threading.Lock()
-# Used to prevent misbehavior with keeping track of the TIMEOUT function.
-# There might still be some threading nonsense with timeout; improvements to thread-safety are an upcoming feature,
-# but as is usage/expected usage is far too low for it to be a top priority.
-
-guild_channels = []
-
-
-# Keeps track of guild channels known to SlapChop. Since overall RAM usage is low, we don't currently expire this.
-# Technically, it's a memory leak, but SlapChop could currently comfortably fit the guild channels of every game in the org on the RAM of the machine it runs on.
-# Expiring will be added as part of the thread-safety update.
+counter_for_code_duplication = 0
 
 def clean_up_and_split(message):
-    dirty_split = re.split("[ \t]{1,1000}", message)
+    dirty_split = re.split("[ \t]{1,1000}", message.strip())
     clean_split = []
 
     concatting = False
@@ -65,14 +56,6 @@ def expire_challenges():
     del expiring_challenges
     expiring_challenges = recent_challenges
     recent_challenges = {}
-
-
-def get_channel_code_from_message(message):
-    key = str(message.channel.guild.id) + ":" + str(message.channel.position)
-    if key not in guild_channels:
-        guild_channels.append(key)
-    return str(guild_channels.index(key))
-
 
 def add_response_from_user(code, user, response, bid):
     map = get_code_map_if_active(code)
@@ -154,6 +137,7 @@ async def on_ready():
 async def on_message(message):
     global timer
     global last_time
+    global counter_for_code_duplication
     with timer_lock:
         timer += time.time() - last_time
         last_time = time.time()
@@ -168,6 +152,10 @@ async def on_message(message):
     if message.author == client.user:
         return
 
+    if message.channel.guild is not None and client.user not in message.mentions:
+        #In server messages, SlapChop only looks at messages it's actually mentioned in.
+        return
+
     message_info = clean_up_and_split(message.content)
 
     if len(message_info) < 2 and message.content.startswith('help'):
@@ -180,6 +168,9 @@ async def on_message(message):
             'More detailed guidance is available at: https://github.com/luke-hdl/slapchop/blob/main/README.md')
         return
 
+    elif len(message_info) < 2:
+        await message.channel.send('Hey there! You can send me \r\n' + client.user.mention + '\r\n help to find out what I can do!')
+
     elif message_info[1].startswith('start'):
         await message.guild.me.edit(nick="Your Buddy SlapChop")
         await message.channel.send('All ready to go!')
@@ -187,7 +178,7 @@ async def on_message(message):
     elif message_info[1].startswith('help'):
         await message.channel.send('Make a static: ' + client.user.mention + " static")
         await message.channel.send(
-            'Make a challenge (you are automatically part of a challenge you make): ' + client.user.mention + " challenge @enemy1 @enemy2 etc")
+            'Make a challenge (you are automatically the aggressor on a challenge you make): ' + client.user.mention + " challenge @enemy1 @enemy2 etc")
         await message.channel.send('Reply to a challenge: follow the directions in the challenge message sent by me :)')
         await message.channel.send(
             'More detailed guidance is available at: https://github.com/luke-hdl/slapchop/blob/main/README.md')
@@ -204,26 +195,34 @@ async def on_message(message):
                 'A challenge needs at least two people! Make sure to @ your rivals at the end of the message.')
             return
         code = message_info[2]
-        if code in recent_challenges or code in expiring_challenges:
-            await message.channel.send('Challenge ' + code + ' is already active; please name a new challenge.')
-        elif not code.isalnum():
+        if re.match(".*<.*:[0-9]{15,1000}>.*", code) is not None:
+            await message.channel.send('Sorry, SlapChop doesn\'t support custom server emojis. (Sometimes, I might mistakenly think a long code with a lot of numbers is a custom emoji. Codes that long aren\'t allowed either, though.)')
+        elif len(code) > 17:
             await message.channel.send(
-                'SlapChop only supports letters and numbers in challenge names. Please name a new challenge.')
+                'Codes should be 20 characters or shorter. (Be aware that Discord emojis count for more than one, depending on their "name" - for instance, a :smile: is 7.)')
         else:
-            code = code + "-" + get_channel_code_from_message(message)
+            success_message = ""
+            counter_for_code_duplication += 1
+            if counter_for_code_duplication > 99999:
+                counter_for_code_duplication = 0
+            if code in recent_challenges or code in expiring_challenges:
+                code = code + "-" + str(counter_for_code_duplication)
+                success_message += '**ALERT**: Your challenge code is in use somewhere else. I\'ve automatically renamed it to ' + code + ' in my memory.\r\n'
             recent_challenges[code] = [message.channel]
-            success_message = "Challenge opened between: "
+            success_message += "Challenge opened between: "
             for individual in challenged_individuals:
                 recent_challenges[code].append([individual, None])
-                success_message += individual.mention + " - "
+                if individual == message.author:
+                    success_message += individual.mention + " (aggressor)\r\n"
+                else:
+                    success_message += individual.mention + " (defender)\r\n"
             success_message += "all of whom should DM me with the following: "
+            success_message += "\r\n```reply " + code + " response```"
+            success_message += '\r\nYou can also include a bid! After your response, include "bidding" at the end, then your trait bid, like this:'
+            success_message += "\r\n```reply " + code + " response bidding x```"
+            success_message += "\r\nreplacing the word response with your response (like rock, paper, scissors, or bomb), and the x with the number of traits you're bidding!"
+            success_message += "\r\nBids will only be revealed if the aggressor and at least one person who submitted the same response *both* bid. In that case, the aggressor's bid is revealed, and so is whether any tying defenders bid more or less."
             await message.channel.send(success_message)
-            await message.channel.send("```reply " + code + " response```")
-            await message.channel.send(
-                'You can also include a bid! After your response, include "bidding" at the end, then your trait bid, like this:')
-            await message.channel.send("```reply " + code + " response bidding x```")
-            await message.channel.send("replacing the word response with your response (like rock, paper, scissors, or bomb), and the x with the number of traits you're bidding!")
-            await message.channel.send("Bids will only be revealed if everyone bids, and only if two people submitted the same chop response. In that case, the aggressor's bid is revealed, and so is whether any tying defenders bid more or less.")
 
     elif message_info[0].startswith('reply'):
         if len(message_info) < 3:
@@ -233,8 +232,7 @@ async def on_message(message):
             return
         if len(message_info) == 4 or len(message_info) > 5 or (len(message_info) == 5 and message_info[3] != "bidding"):
             await message.channel.send(
-                'I\'m not sure what you mean. If you\'d like to send a multi-word response, you can put your response in quotation marks, like "metal scissors" instead of scissors.')
-            await message.channel.send('Try copying the message that I replied to the challenge with exactly.')
+                'I\'m not sure what you mean. If you\'d like to send a multi-word response, you can put your response in quotation marks, like "metal scissors" instead of scissors.\r\nTry copying the message that I replied to the challenge with exactly.')
         code = message_info[1]
         if message_info[2] == "response":
             await message.channel.send('Hey, make sure to swap the word "response" for your response!')
@@ -266,13 +264,9 @@ async def on_message(message):
         await message.channel.send("I'm not sure what you mean.")
         if message.channel.guild is not None:
             await message.channel.send(
-                "I know the commands: static, challenge, help. For more details, post the following:")
-            await message.channel.send(client.user.mention + " help")
+                "I know the commands: static, challenge, help. For more details, post the following:\r\n" + client.user.mention + " help")
         else:
             await message.channel.send(
-                "If you're trying to respond to a challenge, remember that your message needs to start with reply!")
-            await message.channel.send(
-                'You can copy and paste the exact message I responded to the challenge with. Just change the word "response" to your response!')
-
+                "If you're trying to respond to a challenge, remember that your message needs to start with reply!\r\nYou can copy and paste the exact message I responded to the challenge with. Just change the word \"response\" to your response!")
 
 client.run(TOKEN)
