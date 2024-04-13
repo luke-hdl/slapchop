@@ -113,6 +113,13 @@ async def post_challenge_results(code):
     await details[0].send(initial_challenge_result + description)
     del map[code]
 
+async def post_help_tips(channel):
+    await channel.send('Make a static: ' + client.user.mention + " static")
+    await channel.send(
+            'Make a challenge (you are automatically the aggressor on a challenge you make): ' + client.user.mention + " challenge challenge_name @enemy1 @enemy2 etc")
+    await channel.send('Reply to a challenge: follow the directions in the challenge message sent by me :)')
+    await channel.send(
+            'More detailed guidance is available at: https://github.com/luke-hdl/slapchop/blob/main/README.md')
 
 async def check_if_responses_are_filled_out(code, sender_channel):
     map = get_code_map_if_active(code)
@@ -159,13 +166,7 @@ async def on_message(message):
     message_info = clean_up_and_split(message.content)
 
     if len(message_info) < 2 and message.content.startswith('help'):
-        await message.channel.send('Make a static: ' + client.user.mention + " static")
-        await message.channel.send(
-            'Make a challenge (you are automatically the aggressor on the challenge you send, and they\'re the defender): ' + client.user.mention + " challenge challenge_name @enemy1 @enemy2 etc")
-        await message.channel.send(
-            'Reply to a challenge: follow the directions in the challenge message sent by me :)')
-        await message.channel.send(
-            'More detailed guidance is available at: https://github.com/luke-hdl/slapchop/blob/main/README.md')
+        post_help_tips(message.channel)
         return
 
     elif len(message_info) < 2:
@@ -176,12 +177,7 @@ async def on_message(message):
         await message.channel.send('All ready to go!')
 
     elif message_info[1].startswith('help'):
-        await message.channel.send('Make a static: ' + client.user.mention + " static")
-        await message.channel.send(
-            'Make a challenge (you are automatically the aggressor on a challenge you make): ' + client.user.mention + " challenge @enemy1 @enemy2 etc")
-        await message.channel.send('Reply to a challenge: follow the directions in the challenge message sent by me :)')
-        await message.channel.send(
-            'More detailed guidance is available at: https://github.com/luke-hdl/slapchop/blob/main/README.md')
+        post_help_tips(message.channel)
         return
 
     elif message_info[1].startswith('challenge'):
