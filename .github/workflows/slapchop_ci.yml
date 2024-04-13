@@ -24,7 +24,7 @@ jobs:
           SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
 
       - name: Stop any screens
-        run: ssh staging 'ps aux | grep "SCREEN" | awk '{print $2}' | xargs kill'
+        run: ssh staging "screen -ls | grep '(Detached)' | awk 'sys {screen -S $1 -X quit}'"
 
       - name: Check out the source
         run: ssh staging 'cd ~/git/slapchop ; git pull'
