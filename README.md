@@ -5,7 +5,7 @@ SlapChop permits players to secretly select their preferred chop. When all playe
 
 ## Adding SlapChop to your server:
 To use the developer's hosted version, you can invite it your server with:
-https://discord.com/oauth2/authorize?client_id=1228038244550311969&permissions=274945018880&scope=bot
+https://discord.com/oauth2/authorize?client_id=1228038244550311969
 
 ### Setting up your own seperate bot (technical users only)
 If you are having difficulties because the developer is being lazy about keeping his hosted version up, you can create your own bot through the Discord Developer Portal and invite it to your server, then keep the Python script running to keep it responding. 
@@ -17,11 +17,7 @@ Otherwise: copy slapchop.py somewhere you won't share it, paste the token into t
 ## Using SlapChop
 
 ### Initial Setup
-> @SlapChop#0552 start
-
-This command changes SlapChop's nickname to 'Your Buddy SlapChop'. By default, Discord gives bots a role with the same name as the bot's name, which can cause user confusion when users accidentally @ the role, instead of the bot itself. Giving itself a nickname fixes this. Future versions may perform additional setup. (Replace @SlapChop#0552 with your instance of SlapChop's name, if you're not using the developer-hosted version.)
-
-You only need to run this once; you can also manually change SlapChop's name anyways. 
+SlapChop does not offer any server-level settings. Just invite and go!
 
 ### Help in Discord
 > @SlapChop#0552 help

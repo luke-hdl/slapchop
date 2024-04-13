@@ -172,10 +172,6 @@ async def on_message(message):
     elif len(message_info) < 2:
         await message.channel.send('Hey there! You can send me \r\n' + client.user.mention + '\r\n help to find out what I can do!')
 
-    elif message_info[1].startswith('start'):
-        await message.guild.me.edit(nick="Your Buddy SlapChop")
-        await message.channel.send('All ready to go!')
-
     elif message_info[1].startswith('help'):
         await post_help_tips(message.channel)
         return
