@@ -48,7 +48,7 @@ where name is a name for your challenge that no one else in your channel is curr
 
 > @Your Buddy SlapChop challenge fight @Wumpus
 
-The name for your challenge can be any single-word combination of letters and numbers. The name is important because it lets you be in multiple challenges at once. 
+Your channel name (in this case, fight) can be up to 20 letters long. It can include default emoji (although they count for as many letters as their Discord internal name takes up, e.g. 🐱 is :cat:, so it's 5). It cannot include server emoji. You can use quotation marks for a multi-word challenge, for instance, "Voice of Madness".
 
 When you send this message, SlapChop will reply: 
 
@@ -70,12 +70,12 @@ For instance, I might DM:
 while Wumpus responds:
 > reply fight-0 paper
 
-SlapChop will reply to each of our messages to let us know our response was recorded, and will let whoever answers last know that the results are being posted. 
+SlapChop will reply to each of our messages to let us know our response was recorded, and will let whoever answers last know that the results are being posted. Your response can be multiple words if you use quotation marks, though ties need to be identical - so "rock" won't match "rock (dodge)".
 
 Optionally, players can bid, using this syntax: 
 > reply fight-0 rock bidding 10
 
-replacing 10 with whatever your bid is. The MET system is used for bid behavior. If the aggressor (the person who made the challenge) bids, and at least one other person who picked the same thing to throw bids, the aggressor's bid is revealed, and so is whether anyone who tied bid more, less, or the same.
+replacing 10 with whatever your bid is. The bid must be an integer. The MET system is used for bid behavior. If the aggressor (the person who made the challenge) bids, and at least one other person who picked the same thing to throw bids, the aggressor's bid is revealed, and so is whether anyone who tied bid more, less, or the same.
 
 Once all challenged players have replied, SlapChop will post in the same channel the challenge was made. The results will look like this: 
 > Challenge fight-0 is complete! @yourCoolNick throws rock!  

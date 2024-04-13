@@ -1,2 +1,6 @@
+#files that could contain the token
 slapchop-do-not-commit.py
 TOKEN
+
+#sometimes I use pycharm, but I don't really want to commit my .idea-related stuff, since I don't always use pycharm.
+.idea/
