@@ -166,7 +166,7 @@ async def on_message(message):
     message_info = clean_up_and_split(message.content)
 
     if len(message_info) < 2 and message.content.startswith('help'):
-        post_help_tips(message.channel)
+        await post_help_tips(message.channel)
         return
 
     elif len(message_info) < 2:
@@ -177,7 +177,7 @@ async def on_message(message):
         await message.channel.send('All ready to go!')
 
     elif message_info[1].startswith('help'):
-        post_help_tips(message.channel)
+        await post_help_tips(message.channel)
         return
 
     elif message_info[1].startswith('challenge'):
