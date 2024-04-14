@@ -1,29 +1,74 @@
-import threading
-import time
-import random
 import discord
-import re
+import threading
+from challenge import *
+from exceptions import *
+from utils import *
 
 TOKEN = 'YOURTOKEN'
-TIMEOUT = 1200  # in seconds; a thread will not time out before TIMEOUT seconds and will always time out within TIMEOUT * 2 seconds
-# as long as the bot is being used (since timeout checks aren't made when it isn't).
-DEFAULT_CHALLENGE_NAMES = ['angle', 'ant', 'apple', 'arch', 'arm', 'army', 'baby', 'bag', 'ball', 'band', 'basin', 'basket', 'bath', 'bed', 'bee', 'bell', 'berry', 'bird', 'blade', 'board', 'boat', 'bone', 'book', 'boot', 'bottle', 'box', 'boy', 'brain', 'brake', 'branch', 'brick', 'bridge', 'brush', 'bucket', 'bulb', 'button', 'cake', 'camera', 'card', 'cart', 'carriage', 'cat', 'chain', 'cheese', 'chest', 'chin', 'church', 'circle', 'clock', 'cloud', 'coat', 'collar', 'comb', 'cord', 'cow', 'cup', 'curtain', 'cushion', 'dog', 'door', 'drain', 'drawer', 'dress', 'drop', 'ear', 'egg', 'engine', 'eye', 'face', 'farm', 'feather', 'finger', 'fish', 'flag', 'floor', 'fly', 'foot', 'fork', 'fowl', 'frame', 'garden', 'girl', 'glove', 'goat', 'gun', 'hair', 'hammer', 'hand', 'hat', 'head', 'heart', 'hook', 'horn', 'horse', 'hospital', 'house', 'island', 'jewel', 'kettle', 'key', 'knee', 'knife', 'knot', 'leaf', 'leg', 'library', 'line', 'lip', 'lock', 'map', 'match', 'monkey', 'moon', 'mouth', 'muscle', 'nail', 'neck', 'needle', 'nerve', 'net', 'nose', 'nut', 'office', 'orange', 'oven', 'parcel', 'pen', 'pencil', 'picture', 'pig', 'pin', 'pipe', 'plane', 'plate', 'plough', 'pocket', 'pot', 'potato', 'prison', 'pump', 'rail', 'rat', 'receipt', 'ring', 'rod', 'roof', 'root', 'sail', 'school', 'scissors', 'screw', 'seed', 'sheep', 'shelf', 'ship', 'shirt', 'shoe', 'skin', 'skirt', 'snake', 'sock', 'spade', 'sponge', 'spoon', 'spring', 'square', 'stamp', 'star', 'station', 'stem', 'stick', 'stocking', 'stomach', 'store', 'street', 'sun', 'table', 'tail', 'thread', 'throat', 'thumb', 'ticket', 'toe', 'tongue', 'tooth', 'town', 'train', 'tray', 'tree', 'trousers', 'umbrella', 'wall', 'watch', 'wheel', 'whip', 'whistle', 'window', 'wing', 'wire', 'worm']
+TIMEOUT = 1200  # in seconds
+
+challenges_by_player = {}
+#Altering an individual challenge has been designed to be thread-safe to normal user response.
+#(Python's limited thread-safety for built-in types, and limits on user input, mean that two users will never be altering the same Response item, for instance.)
+#However, expiring challenges or adding new challenges does require a lock.
+alter_challenges_lock = threading.Lock()
 
 intents = discord.Intents.default()
-
 client = discord.Client(intents=intents)
-# The format of the challenges is a dictionary of codes, which correspond to a
-# list, whose elements are pairs of users and responses.
-recent_challenges = {}
-expiring_challenges = {}
-timer = 0
-last_time = 0
-timer_lock = threading.Lock()
-counter_for_code_duplication = 0
+
+async def add_players_to_challenge(challenge, players):
+    with alter_challenges_lock:
+        for player in players:
+            if player in challenges_by_player:
+                raise PlayerIsInAChallengeException(player)
+        for player in players:
+            challenges_by_player[player] = challenge
+            try:
+                await get_whisper_channel_for_player(player).send("You've been challenged to chops! Send me a message with what you'd like to throw, like 'rock', 'paper', or 'scissors'. (I accept custom rules, so feel free to send 'bomb', etc., too - I might not be able to automatically determine winners, though)!)")
+            except: pass
+
+async def attempt_to_cancel_challenge(player):
+    with alter_challenges_lock:
+        if player in challenges_by_player:
+            for notify_player in challenges_by_player[player].get_players_in_challenge():
+                challenges_by_player.pop(notify_player)
+                try:
+                    await get_whisper_channel_for_player(notify_player).send("The challenge you were in has been cancelled.")
+                except:
+                    pass
+
+        else:
+            await get_whisper_channel_for_player(player).send("You're not in a challenge!")
+
+def get_whisper_channel_for_player(player):
+    return None
+
+async def expire_challenges():
+    with alter_challenges_lock:
+        for challenge in challenges_by_player.values():
+            if challenge.should_expire(TIMEOUT):
+                for player in challenge.get_players_in_challenge():
+                    challenges_by_player.pop(player)
+                    try:
+                        await get_whisper_channel_for_player(player).send("Your challenge timed out. If you'd like to be in a challenge, please issue a new one.")
+                    except:
+                        pass
 
 
+def add_response_from_player(player, response):
+    challenge = challenges_by_player.get(player)
+    if challenge is None:
+        raise ResponderNotInChallengeException
+    challenge.add_response_from_responder(player, response)
 
-def clean_up_and_split(message):
+
+def add_bid_from_player(player, bid):
+    challenge = challenges_by_player.get(player)
+    if challenge is None:
+        raise ResponderNotInChallengeException
+    challenge.add_bid_from_responder(player, bid)
+
+def clean_up_and_split_message(message):
     dirty_split = re.split("[ \t]{1,1000}", message.strip())
     clean_split = []
 
@@ -45,239 +90,105 @@ def clean_up_and_split(message):
 
     return clean_split
 
+def get_self_mention():
+    return client.user.mention
 
-def get_code_map_if_active(code):
-    if code in recent_challenges:
-        return recent_challenges
-    elif code in expiring_challenges:
-        return expiring_challenges
+async def process_direct_message_from_player(channel, player, message):
+    message.replace(get_self_mention(), "")
+    if len(message) == 0:
+        await send_completely_unknown_input_exception(channel)
+    elif equal_inputs(message, "Help"):
+        await send_help_message(channel)
+    elif equal_inputs(message, "Leave"):
+        await attempt_to_cancel_challenge(player)
 
-def get_code_with_number(code):
-    global counter_for_code_duplication
-    counter_for_code_duplication += 1
-    if counter_for_code_duplication > 99999:
-        counter_for_code_duplication = 0
-    return code + "-" + str(counter_for_code_duplication)
+    status = ResponseStatus.RESPONSE_DOES_NOT_EXIST
 
-def expire_challenges():
-    global expiring_challenges
-    global recent_challenges
-    del expiring_challenges
-    expiring_challenges = recent_challenges
-    recent_challenges = {}
+    if player in challenges_by_player:
+        status = challenges_by_player[player].get_response_status(player)
 
-def add_response_from_user(code, user, response, bid):
-    code_map = get_code_map_if_active(code)
-    if code_map is None:
-        return "Challenge " + code + " not found."
-    if bid is not None and bid != "" and re.fullmatch("[0-9]*", bid) is None:
-        return "Bid must be a number (no decimals allowed)."
-    details = code_map[code]
-    for challenge in details:
-        if type(challenge) is list and challenge[0].id == user.id:
-            if challenge[1] is None:
-                challenge[1] = response
-                if bid is not None and bid.isnumeric():
-                    challenge.append(int(bid))
-                else:
-                    challenge.append(bid)
-                return None
-            else:
-                return "You've already responded to " + code + "; responses are final."
-    return "You aren't part of this challenge."
+    try:
+        match status:
+            case ResponseStatus.RESPONSE_DOES_NOT_EXIST:
+                raise ResponderNotInChallengeException
+            case ResponseStatus.WAITING_FOR_RESPONSE:
+                add_response_from_player(player, message)
+                await channel.send("Your response has been recorded! Now you can submit a bid. If you'd like to provide a bid, reply with a whole number. Otherwise, reply 'no' so that I know that you're done.")
+            case ResponseStatus.WAITING_FOR_BID:
+                add_bid_from_player(player, message)
+                await channel.send("Your bid has been recorded! You'll receive a DM and a mention in the challenge channel when everyone has responded.")
+            case ResponseStatus.COMPLETE:
+                raise ResponderHasAlreadyRespondedException #lets us fold this case into the error handling.
+    except ResponderNotInChallengeException:
+        await channel.send("Hey there! You're not in a challenge right now - you can only issue challenges in a channel that you, I, and whoever you're challenging all have access to. If you'd like more information, please send me the word 'help'.")
+    except ResponderHasAlreadyRespondedException:
+        await channel.send("Hey there! You've already responded to the challenge you're in right now. If people aren't responding, and you'd like to leave the challenge, you can send me the word 'leave' to leave the challenge. (This cancels the challenge for everyone, though!)")
+    except BidIsNotAWholeNumberException:
+        await channel.send("Hey there! Your bid needs to be a whole number. I understand '3' or '5', but not '-3' or '5.5' or '1/2'.")
+    except:
+        await channel.send("Something went wrong, and I'm very confused. Your input hasn't been recorded. If you keep seeing this message, please contact my developer, discord user marrinkarrin.")
 
-def get_default_challenge_name():
-    tries = 0
-    code = ""
-    while tries < 200: #Not really efficient, but RAM, not CPU, is by far the limiting resource with my current hosting.
-        code = DEFAULT_CHALLENGE_NAMES[random.randint(0, len(DEFAULT_CHALLENGE_NAMES))]
-        if get_code_map_if_active(code) is None:
-            return code
-        tries += 1
-    return get_code_with_number(code)
+    await process_challenge_status_for_player(player)
 
+async def process_challenge_status_for_player(player):
+    challenge = challenges_by_player.get(player)
+    if challenge is not None and challenge.is_complete:
+        await complete_challenge(challenge)
 
-async def post_challenge_results(code):
-    code_map = get_code_map_if_active(code)
-    details = code_map[code]
-    initial_challenge_result = "Challenge " + code + " is complete!"
-    challenge = details[1]
-    have_tied = False
-    tying_chop = challenge[1]
-    tying_bid = None
-    if len(challenge) == 3:
-        tying_bid = challenge[2]
-    initial_challenge_result += " " + challenge[0].mention + " throws " + challenge[1] + "!"
-    description = ""
-    iterator = 2
-    while iterator < len(details):
-        challenge = details[iterator]
-        description += "\r\n" + challenge[0].mention + " throws " + challenge[1] + "!"
-        if challenge[1] == tying_chop and challenge[2] is not None:
-            if len(challenge) == 3 and tying_bid is not None:
-                if tying_bid > challenge[2]:
-                    description += "\r\n     It's a tie! " + challenge[0].mention + " bid: less!"
-                elif tying_bid < challenge[2]:
-                    description += "\r\n     It's a tie! " + challenge[0].mention + " bid: more!"
-                else:
-                    description += "\r\n     It's a tie! " + challenge[
-                        0].mention + " bid: the same number! (Remember, ties typically go to the defender, so this should probably be treated as if they'd bid more.)"
-            if not have_tied:
-                have_tied = True
-                if tying_bid is not None:
-                    initial_challenge_result += " A tie occurred; they bid " + str(tying_bid) + "."
-                else:
-                    initial_challenge_result += " A tie occurred, but they did not declare a bid."
+async def complete_challenge(challenge):
+    with alter_challenges_lock:
+        for notify_player in challenge.get_players_in_challenge():
+            challenges_by_player.pop(notify_player)
+            try:
+                await get_whisper_channel_for_player(notify_player).send("Your challenge has been completed! See the channel it was posted in for results!")
+            except: pass
+    await post_challenge_results(challenge)
+    del challenge
+
+async def post_challenge_results(challenge):
+    results = "The challenge between "
+    players = challenge.get_players_in_challenge()
+    iterator = 0
+    while iterator < len(players) - 1:
+        player = players[iterator]
+        results += player.display_name + ", "
         iterator += 1
-    await details[0].send(initial_challenge_result + description)
-    del code_map[code]
+    results += "and " + players[iterator].display_name + " is complete!\r\n"
+    print_bid_information = challenge.did_anyone_tie_with_the_aggressor()
+    if challenge.did_everyone_bid() and print_bid_information:
+        results += "Every player submitted a bid, and at least one tie has occurred! I'll reveal the aggressor's bid, and whether any tying players bid more, less, or equal.\r\n"
+    elif not challenge.did_everyone_bid() and print_bid_information:
+        print_bid_information = False
+        results += "A tie occurred, but not every player submitted a bid. I won't reveal bid-related information.\r\n"
+    results += "Results: \r\n"
+    for player in players:
+        results += challenge.get_response_description(player, print_bid_information)
+    await challenge.channel.send(results)
 
-async def post_help_tips(channel):
-    await channel.send('Make a static: ' + client.user.mention + " static")
-    await channel.send(
-            'Make a challenge (you are automatically the aggressor on a challenge you make): ' + client.user.mention + " challenge challenge_name @enemy1 @enemy2 etc")
-    await channel.send('Reply to a challenge: follow the directions in the challenge message sent by me :)')
-    await channel.send(
-            'More detailed guidance is available at: https://github.com/luke-hdl/slapchop/blob/main/README.md')
+async def send_completely_unknown_input_exception(channel):
+    channel.send(str.format("""
+        Hey there! I'm not quite sure what you meant. 
+        If you'd like an explanation of what I can do, you can post
+        ```%s help```
+        in any channel I'm in. Or just DM me the word "help"!
+    """, get_self_mention()))
 
-async def check_if_responses_are_filled_out(code, sender_channel):
-    code_map = get_code_map_if_active(code)
-    if code_map is None:
-        return  # something wrong has happened.
-    details = code_map[code]
-    for challenge in details:
-        if type(challenge) is list and challenge[1] is None:
-            await sender_channel.send(
-                "Your response has been recorded. Results will be posted when all challenged users have responded.")
-            return
-    await post_challenge_results(code)
-    await sender_channel.send("The challenge is complete! Go check the channel it was issued in for results.")
-
+async def send_help_message(channel):
+    channel.send(str.format("""
+        Welcome to SlapChop! If you'd like to challenge someone, go to a channel that they're in, then send: "
+        ```%s challenge @friend```
+        You can even challenge multiple people in the same challenge, just mention all of them! Just be warned that you can only be in one challenge at a time.
+        Everyone in the challenge will receive a DM from me with instructions. Once everyone has replied, I'll post the results!
+        I also support static challenges (equivalent to playing against a totally random NPC.) Just send me: 
+        ```%s static```
+        and I'll tell you if you won or lost.
+    """, get_self_mention()))
 
 @client.event
 async def on_ready():
     print(f'We have logged in as {client.user}')
 
-
 @client.event
 async def on_message(message):
-    global timer
-    global last_time
-    with timer_lock:
-        timer += time.time() - last_time
-        last_time = time.time()
-        if timer > TIMEOUT:
-            # Note that we only check for timeout when messages are actually being sent.
-            # This is because checking for timeout is a very simple technique to not have old and forgotten challenges clogging up RAM.
-            # If no one's actually sending challenges, it doesn't matter, but this does mean that a challenge won't expire until SlapChop has received
-            # at least two messages (from anywhere) after the challenge is sent, regardless of TIMEOUT.
-            expire_challenges()
-            timer = 0
-
-    if message.author == client.user:
-        return
-
-    if message.channel.guild is not None and client.user not in message.mentions:
-        #In server messages, SlapChop only looks at messages it's actually mentioned in.
-        return
-
-    message_info = clean_up_and_split(message.content)
-
-    if len(message_info) < 2 and message.content.startswith('help'):
-        await post_help_tips(message.channel)
-        return
-
-    elif len(message_info) < 2:
-        await message.channel.send('Hey there! You can send me \r\n' + client.user.mention + '\r\n help to find out what I can do!')
-
-    elif message_info[1].startswith('help'):
-        await post_help_tips(message.channel)
-        return
-
-    elif message_info[1].startswith('challenge'):
-        mentions = message.mentions
-        challenged_individuals = [message.author]
-        for mention in mentions:
-            if mention not in challenged_individuals and mention != client.user:
-                challenged_individuals.append(mention)
-        if len(challenged_individuals) < 2:
-            await message.channel.send(
-                'A challenge needs at least two people! Make sure to @ your rivals at the end of the message.')
-            return
-        code = message_info[2]
-        code_is_mention = re.fullmatch("<@[0-9]*>", code) is not None
-        if re.match(".*<.*:[0-9]{15,1000}>.*", code) is not None:
-            await message.channel.send('Sorry, SlapChop doesn\'t support custom server emojis. (Sometimes, I might mistakenly think a long code with a lot of numbers is a custom emoji. Codes that long aren\'t allowed either, though.)')
-        elif not code_is_mention and len(code) > 17:
-            await message.channel.send(
-                'Codes should be 20 characters or shorter. (Be aware that Discord emojis count for more than one, depending on their "name" - for instance, a :smile: is 7.)')
-        else:
-            success_message = ""
-            if code_is_mention: #the code starting with a mention means no code was specified
-                code = get_default_challenge_name()
-                success_message += '**ALERT**: You didn\'t name your challenge, or you named it after a mention. I\'ve named it ***' + code + '*** for you. When you issue a challenge, you can name it yourself by putting the name between the word "challenge" and the names of your friends. Names can\'t be mentions, though (I\'ll think that\'s who you\'re challenging!) \r\n'
-            elif code in recent_challenges or code in expiring_challenges:
-                code = get_code_with_number(code)
-                success_message += '**ALERT**: Your challenge code is in use somewhere else. I\'ve automatically renamed it to ' + code + ' in my memory.\r\n'
-            recent_challenges[code] = [message.channel]
-            success_message += "Challenge opened between: "
-            for individual in challenged_individuals:
-                recent_challenges[code].append([individual, None])
-                if individual == message.author:
-                    success_message += individual.mention + " (aggressor)\r\n"
-                else:
-                    success_message += individual.mention + " (defender)\r\n"
-            success_message += "all of whom should DM me with the following: "
-            success_message += "\r\n```reply " + code + " response```"
-            success_message += '\r\nYou can also include a bid! After your response, include "bidding" at the end, then your trait bid, like this:'
-            success_message += "\r\n```reply " + code + " response bidding x```"
-            success_message += "\r\nreplacing the word response with your response (like rock, paper, scissors, or bomb), and the x with the number of traits you're bidding!"
-            success_message += "\r\nBids will only be revealed if the aggressor and at least one person who submitted the same response *both* bid. In that case, the aggressor's bid is revealed, and so is whether any tying defenders bid more or less."
-            await message.channel.send(success_message)
-
-    elif message_info[0].startswith('reply'):
-        if len(message_info) < 3:
-            await message.channel.send(
-                'Hey, remember: I need both the challenge name and your response to know what you\'re responding to!')
-            await message.channel.send('Try copying the message that I replied to the challenge with exactly.')
-            return
-        if len(message_info) == 4 or len(message_info) > 5 or (len(message_info) == 5 and message_info[3] != "bidding"):
-            await message.channel.send(
-                'I\'m not sure what you mean. If you\'d like to send a multi-word response, you can put your response in quotation marks, like "metal scissors" instead of scissors.\r\nTry copying the message that I replied to the challenge with exactly.')
-        code = message_info[1]
-        if message_info[2] == "response":
-            await message.channel.send('Hey, make sure to swap the word "response" for your response!')
-            return
-        if len(message_info) == 5 and message_info[4] == "x":
-            await message.channel.send('Hey, make sure to swap the letter "x" for your bid!')
-            return
-
-        if len(message_info) == 5:
-            error_message = add_response_from_user(code, message.author, message_info[2], message_info[4])
-        else:
-            error_message = add_response_from_user(code, message.author, message_info[2], None)
-
-        if error_message is None:
-            await check_if_responses_are_filled_out(code, message.channel)
-        else:
-            await message.channel.send(error_message)
-
-    elif message_info[1].startswith('static'):
-        match random.randint(1, 3):
-            case 1:
-                await message.channel.send(message.author.mention + "'s result: Win")
-            case 2:
-                await message.channel.send(message.author.mention + "'s result: Tie")
-            case 3:
-                await message.channel.send(message.author.mention + "'s result: Loss")
-
-    else:
-        await message.channel.send("I'm not sure what you mean.")
-        if message.channel.guild is not None:
-            await message.channel.send(
-                "I know the commands: static, challenge, help. For more details, post the following:\r\n" + client.user.mention + " help")
-        else:
-            await message.channel.send(
-                "If you're trying to respond to a challenge, remember that your message needs to start with reply!\r\nYou can copy and paste the exact message I responded to the challenge with. Just change the word \"response\" to your response!")
-
+    print('Message receieved')
 client.run(TOKEN)
