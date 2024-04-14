@@ -21,6 +21,8 @@ last_time = 0
 timer_lock = threading.Lock()
 counter_for_code_duplication = 0
 
+
+
 def clean_up_and_split(message):
     dirty_split = re.split("[ \t]{1,1000}", message.strip())
     clean_split = []
