@@ -1,7 +1,8 @@
 #!/bin/bash
-touch slapchop-do-not-commit.py
-rm slapchop-do-not-commit.py
-touch slapchop-do-not-commit.py
+rm -rf out/
+mkdir out
+cp -r src/ out/
+
 set `cat TOKEN`
 while IFS= read -r line
 do
@@ -9,6 +10,6 @@ do
        *YOURTOKEN*) printf "%s\n" "${line/YOURTOKEN/$1}" ;;
        *) printf "%s\n" "$line" ;;
     esac
-done < slapchop.py > slapchop-do-not-commit.py
+done < src/slapchop.py > out/src/slapchop-do-not-commit.py
 
-python3 slapchop-do-not-commit.py
+python3 out/src/slapchop-do-not-commit.py
