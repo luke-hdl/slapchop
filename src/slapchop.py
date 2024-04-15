@@ -25,10 +25,12 @@ async def add_players_to_challenge(challenge, players):
                 #But we need to minimize time and logic with the alter_challenges_lock.
                 del challenge
                 raise PlayerIsInAChallengeException
-            for player in players:
-                challenges_by_player[player] = challenge
+        for player in players:
+            challenges_by_player[player] = challenge
+
+        for player in players:
             try:
-                await player.send("You've been challenged to chops! Send me a message_text with what you'd like to throw, like 'rock', 'paper', or 'scissors'. (I accept custom rules, so feel free to send 'bomb', etc., too - I might not be able to automatically determine winners, though)!)")
+                await player.send("You've been challenged to chops! Send me a message with what you'd like to throw, like 'rock', 'paper', or 'scissors'. (I accept custom rules, so feel free to send 'bomb', etc., too - I might not be able to automatically determine winners, though)!)")
             except: pass
 
 async def attempt_to_cancel_challenge(player):
@@ -45,16 +47,18 @@ async def attempt_to_cancel_challenge(player):
             await player.send("You're not in a challenge!")
 
 async def expire_challenges():
+    players_to_expire = []
     with alter_challenges_lock:
-        for challenge in challenges_by_player.values():
-            if challenge.should_expire(TIMEOUT):
-                for player in challenge.get_players_in_challenge():
-                    challenges_by_player.pop(player)
-                    try:
-                        await player.send("Your challenge timed out. If you'd like to be in a challenge, please issue a new one.")
-                    except:
-                        pass
-
+        for player_with_challenge in challenges_by_player:
+            if challenges_by_player[player_with_challenge].should_expire(TIMEOUT):
+                players_to_expire.append(player_with_challenge)
+        for player in players_to_expire:
+            challenges_by_player.pop(player)
+    for player in players_to_expire:
+        try:
+            await player.send("Your challenge timed out. If you'd like to be in a challenge, please issue a new one.")
+        except:
+            pass
 
 def add_response_from_player(player, response):
     challenge = challenges_by_player.get(player)
@@ -95,9 +99,9 @@ def get_self_mention():
     return client.user.mention
 
 async def process_guild_message_text_from_player(channel, message):
-    message_text = message.content
-    if not message_text.mentions(client.user):
+    if client.user not in message.mentions:
         return #By default, SlapChop shouldn't see messages that it doesn't ask for, but it's better safe than sorry.
+    message_text = message.content
     tokenized_message_text = re.split("[ \t]{1,1000}", message_text)
     if equal_inputs(tokenized_message_text[1], "challenge"):
         if message.author in challenges_by_player:
@@ -123,7 +127,7 @@ async def process_guild_message_text_from_player(channel, message):
         new_challenge = Challenge(message.channel, message.author, defending_players)
         defending_players.append(message.author)
         try:
-            add_players_to_challenge(new_challenge, defending_players)
+            await add_players_to_challenge(new_challenge, defending_players)
         except PlayerIsInAChallengeException:
             await channel.send("I recieved multiple challenge requests for one of your players in a very short order. I haven't begun your challenge because of this. Please submit it again.")
             return
@@ -132,7 +136,7 @@ async def process_guild_message_text_from_player(channel, message):
         await perform_static_challenge(channel, message.author)
 
     else:
-        send_help_response(channel)
+        await send_help_response(channel)
 
 async def process_direct_message_text_from_player(channel, player, message_text):
     if len(message_text) == 0:
@@ -141,9 +145,9 @@ async def process_direct_message_text_from_player(channel, player, message_text)
         await send_help_response(channel)
     elif equal_input_to_one_of_list(message_text, ["Leave", "Quit"]):
         await attempt_to_cancel_challenge(player)
-    elif equal_input_to_one_of_list("Hi", ["Hello", "Hey", "Ho", "Status", "State"]):
+    elif equal_input_to_one_of_list(message_text, ["Hello", "Hey", "Ho", "Status", "State"]):
         if player in challenges_by_player:
-            match challenges_by_player[player].get_response_status():
+            match challenges_by_player[player].get_response_status(player):
                 case ResponseStatus.RESPONSE_DOES_NOT_EXIST:
                     await channel.send("Hey there! You're in a challenge, but it looks like I might have lost track of you. I'm going to remove you from the challenge - feel free to issue a new one.")
                     challenges_by_player.pop(player)
@@ -153,7 +157,9 @@ async def process_direct_message_text_from_player(channel, player, message_text)
                     await channel.send("Hey there! You're in a challenge, I'm waiting for your bid. Please reply with a whole number. If you don't want to bid, send me the word *no* instead!")
                 case ResponseStatus.COMPLETE:
                     await channel.send("Hey there! You're in a challenge. You've submitted your bid and response, but I'm waiting for other players. If you think they've gotten distracted, you can cancel the challenge by sending me *quit* or *leave*.")
-            await channel.send("Hey there! You're in a challenge.")
+        else:
+            await channel.send("Hey there! You're not in a challenge - feel free to go send one in any server channel I'm in.")
+        return
 
     status = ResponseStatus.RESPONSE_DOES_NOT_EXIST
 
@@ -176,8 +182,8 @@ async def process_direct_message_text_from_player(channel, player, message_text)
         await channel.send("Hey there! You're not in a challenge right now - you can only issue challenges in a channel that you, I, and whoever you're challenging all have access to. If you'd like more information, please send me the word 'help'.")
     except ResponderHasAlreadyRespondedException:
         await channel.send("Hey there! You've already responded to the challenge you're in right now. If people aren't responding, and you'd like to leave the challenge, you can send me the word 'leave' to leave the challenge. (This cancels the challenge for everyone, though!)")
-    except BidIsNotAWholeNumberException:
-        await channel.send("Hey there! Your bid needs to be a whole number. I understand '3' or '5', but not '-3' or '5.5' or '1/2'.")
+    except BidIsInvalidException:
+        await channel.send("Hey there! Your bid needs to be a whole number under 999999. I understand '3' or '5', but not '-3' or '5.5' or '1/2'.")
     except:
         await channel.send("Something went wrong, and I'm very confused. Your input hasn't been recorded. If you keep seeing this message_text, please contact my developer, discord user marrinkarrin.")
 
@@ -185,7 +191,7 @@ async def process_direct_message_text_from_player(channel, player, message_text)
 
 async def process_challenge_status_for_player(player):
     challenge = challenges_by_player.get(player)
-    if challenge is not None and challenge.is_complete:
+    if challenge is not None and challenge.is_complete():
         await complete_challenge(challenge)
 
 async def complete_challenge(challenge):
@@ -200,13 +206,13 @@ async def complete_challenge(challenge):
 
 async def post_challenge_results(challenge):
     results = "The challenge between "
-    players = challenge.get_players_in_challenge()
+    players = list(challenge.get_players_in_challenge())
     iterator = 0
     while iterator < len(players) - 1:
         player = players[iterator]
-        results += player.display_name + ", "
+        results += player.display_name + " + "
         iterator += 1
-    results += "and " + players[iterator].display_name + " is complete!\r\n"
+    results += players[iterator].display_name + " is complete!\r\n"
     print_bid_information = challenge.did_anyone_tie_with_the_aggressor()
     if challenge.did_everyone_bid() and print_bid_information:
         results += "Every player submitted a bid, and at least one tie has occurred! I'll reveal the aggressor's bid, and whether any tying players bid more, less, or equal.\r\n"
@@ -234,23 +240,29 @@ async def perform_static_challenge(channel, player, winning_ties = None):
             await channel.send(player.mention + ", you lost. :(")
 
 async def send_completely_unknown_input_exception(channel):
-    channel.send(str.format("""
+    await channel.send("""
         Hey there! I'm not quite sure what you meant. 
         If you'd like an explanation of what I can do, you can post
-        ```%s help```
+        
+        {} help
+        
         in any channel I'm in. Or just DM me the word "help"!
-    """, get_self_mention()))
+    """.format(get_self_mention()))
 
 async def send_help_response(channel):
-    channel.send(str.format("""
+    await channel.send("""
         Welcome to SlapChop! If you'd like to challenge someone, go to a channel that they're in, then send: "
-        ```%s challenge @friend```
+        
+        {} challenge @friend
+        
         You can even challenge multiple people in the same challenge, just mention all of them! Just be warned that you can only be in one challenge at a time.
         Everyone in the challenge will receive a DM from me with instructions. Once everyone has replied, I'll post the results!
         I also support static challenges (equivalent to playing against a totally random NPC.) Just send me: 
-        ```%s static```
+        
+        {} static
+        
         and I'll tell you if you won or lost.
-    """, get_self_mention()))
+    """.format(get_self_mention(), get_self_mention()))
 
 @client.event
 async def on_ready():
@@ -260,11 +272,10 @@ async def on_ready():
 async def on_message(message):
     if message.author == client.user:
         return
-    elif message.channel is discord.TextChannel or message.channel is discord.Thread:
+    await expire_challenges()
+    if message.channel.guild is not None:
         await process_guild_message_text_from_player(message.channel, message)
-    elif message.channel is discord.DMChannel:
+    else:
         await process_direct_message_text_from_player(message.channel, message.author, message.content)
-    elif message.channel is discord.GroupChannel:
-        await message.channel.send("I'm a little shy! Please message me in a DM or a server channel, not a group message.")
 
 client.run(TOKEN)

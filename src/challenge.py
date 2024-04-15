@@ -10,7 +10,7 @@ class Challenge:
     #time_of_issue - The time the issue was opened, used to expire the challenge if needed.
     #responses - A dictionary that maps responders to their responses. (Responses know their responder, but this improves efficiency.)
     def __init__(self, channel_for_challenge, aggressor, defenders):
-        self.channel_for_challenge = channel_for_challenge
+        self.channel = channel_for_challenge
         self.time_of_issue = time.time()
         self.responses = {aggressor: Response(aggressor, Role.AGGRESSOR)}
         self.aggressor_response = self.responses[aggressor]
@@ -18,19 +18,19 @@ class Challenge:
             self.responses[defender] = Response(defender, Role.DEFENDER)
 
     def should_expire(self, timeout):
-        return timeout > time.time() - self.time_of_issue
+        return timeout < time.time() - self.time_of_issue
 
     def get_players_in_challenge(self):
         return self.responses.keys()
 
     def is_complete(self):
-        for response in self.responses:
+        for response in self.responses.values():
             if not response.complete:
                 return False
         return True
 
     def did_everyone_bid(self):
-        for response in self.responses:
+        for response in self.responses.values():
             if response.bid is None:
                 return False
         return True
@@ -38,7 +38,7 @@ class Challenge:
     def did_anyone_tie_with_the_aggressor(self):
         aggressor_response = None
         non_aggressor_responses = []
-        for response in self.responses:
+        for response in self.responses.values():
             if response.role == Role.AGGRESSOR:
                 aggressor_response = response.response
             else:
@@ -86,7 +86,7 @@ class Response:
         self.bid = None
 
     def get_response_description(self, include_bid_information, aggressor_response):
-        response = str.format("$s (%s) threw: %s", self.responder.mention, self.responder.role.get_as_readable(), self.response)
+        response = "{} ({}) threw: {}".format(self.responder.mention, self.role.get_as_readable(), self.response)
         if include_bid_information:
             if self.role == Role.AGGRESSOR:
                 response += " and tied with at least one defender, bidding " + str(self.bid)
@@ -118,10 +118,10 @@ class Response:
         elif equal_input_to_one_of_list(bid, ["No", "N", "no bid", "no thanks"]):
             self.bid = None
             self.complete = True
-        elif bid is None or bid == "" or re.fullmatch("[0-9]*", bid) is None:
-            raise BidIsNotAWholeNumberException
+        elif bid is None or bid == "" or re.fullmatch("[0-9]{1,6}", bid) is None:
+            raise BidIsInvalidException
         else:
-            self.bid = bid
+            self.bid = int(bid)
             self.complete = True
 
 class Role(Enum):
@@ -131,9 +131,9 @@ class Role(Enum):
     def get_as_readable(self):
         match self:
             case Role.AGGRESSOR:
-                return "(Aggressor)"
+                return "Aggressor"
             case Role.DEFENDER:
-                return "(Defender)"
+                return "Defender"
 
 
 class ResponseStatus(Enum):

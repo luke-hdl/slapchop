@@ -4,8 +4,8 @@ class ResponderNotInChallengeException(Exception):
 class ResponderHasAlreadyRespondedException(Exception):
     """Raised when someone tries to respond to a challenge more than once."""
 
-class BidIsNotAWholeNumberException(Exception):
-    """Raised when someone bids a number that is not a whole number."""
+class BidIsInvalidException(Exception):
+    """Raised when someone bids a number that is not a whole number or that is more than 999999"""
 
 class PlayerIsInAChallengeException(Exception):
     """Raised when a player is already in a challenge. Limiting to one challenge at a time simplifies things a lot."""
