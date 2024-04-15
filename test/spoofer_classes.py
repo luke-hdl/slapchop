@@ -1,5 +1,10 @@
 import time
 
+class SpoofCord:
+    def __init__(self, users, guild_channels, clients):
+        self.guild_channels = guild_channels
+        self.users = users
+
 class Client:
     def __init__(self, user):
         self.user = user
@@ -19,10 +24,10 @@ class RecordedMessage: #no discord equivalent; used to store the channel buffer
         self.post_time = time.time()
         
 class User:
-    def __init__(self, display_name, channel):
-        self.channel = channel
+    def __init__(self, display_name):
+        self.channel = Channel(None)
         self.display_name = display_name
-        self.mention = "<@{}>".format(int(hash(display_name))) #this doesn't guarantee a unique mention, but that's more complicated; I'll account for it later
+        self.mention = "WOW IT IS " + display_name #we use a different means for these
 
 class Channel:
     def __init__(self, guild):
