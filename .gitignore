@@ -2,5 +2,11 @@
 out/
 TOKEN
 
+#files involved with emacs or caches
+*~
+*#
+*__pycache__*
+*.swp
+
 #sometimes I use pycharm, but I don't really want to commit my .idea-related stuff, since I don't always use pycharm.
 .idea/
