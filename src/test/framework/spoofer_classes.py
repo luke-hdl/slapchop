@@ -35,10 +35,10 @@ class User:
         self.channel = Channel(None)
         self.display_name = display_name
         self.mention = "<" + str(int(hash(display_name))) + ">"
-        player_mention_map[self] = self.mention
+        player_mention_map[self.mention] = self
 
     async def send(self, message):
-        self.channel.send(message)
+        await self.channel.send(message)
 
 class Channel:
     def __init__(self, guild):
@@ -52,7 +52,7 @@ class Channel:
 
     async def send(self, message_text):
         mentions = []
-        for string in re.split("[ \t]{1,1000}", message_text):
+        for string in re.split("[ \t\r\n]{1,1000}", message_text):
             if string in player_mention_map:
                 mentions.append(player_mention_map[string])
         message = Message(client.user, self, message_text, mentions)
