@@ -1,8 +1,8 @@
 from enum import Enum
 import time
 import re
-from exceptions import *
-from utils import *
+from .exceptions import *
+from .utils import *
 
 class Challenge:
     #Contains the following fields:

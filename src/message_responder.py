@@ -1,8 +1,8 @@
 import threading
 from random import randint
-from challenge import *
-from exceptions import *
-from utils import *
+from .challenge import *
+from .exceptions import *
+from .utils import *
 
 class MessageResponder:
     def __init__(self, timeout, client):

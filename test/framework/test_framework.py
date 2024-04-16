@@ -22,15 +22,18 @@ def log(message, type=LogMessageType.INFO):
 
 def test(fn):
     @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
+    async def wrapper(*args, **kwargs):
         try:
-            fn(*args, **kwargs)
+            await fn(*args, **kwargs)
             log(fn.__name__, LogMessageType.SUCCEED)
+            return True
         except TestError as te:
             log(fn.__name__ + " - " + te.message, LogMessageType.FAILED)
+            return False
         except:
             log(fn.__name__ + " - Uncaught exception occurred.", LogMessageType.FAILED)
             log(traceback.format_exc())
+            return False
     return wrapper
 
 

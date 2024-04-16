@@ -1,9 +1,16 @@
 import time
+import re
+
+player_mention_map = {}
+client = None
 
 class SpoofCord:
-    def __init__(self, users, guild_channels, clients):
+    def __init__(self, users, guild_channels, new_client):
+        global client
         self.guild_channels = guild_channels
         self.users = users
+        self.client = new_client
+        client = new_client
 
 class Client:
     def __init__(self, user):
@@ -27,9 +34,10 @@ class User:
     def __init__(self, display_name):
         self.channel = Channel(None)
         self.display_name = display_name
-        self.mention = "<" + str(int(hash(display_name))) + ">" #we use a different means for these
+        self.mention = "<" + str(int(hash(display_name))) + ">"
+        player_mention_map[self] = self.mention
 
-    def send(self, message):
+    async def send(self, message):
         self.channel.send(message)
 
 class Channel:
@@ -37,8 +45,18 @@ class Channel:
         self.guild = guild
         self.message_history = []
 
-    def send(self, message):
-        message_history.append(RecordedMessage(message))
+    async def spoof_send(self, message, responder):
+        self.message_history.append(RecordedMessage(message))
+        if responder is not None:
+            await responder.on_message(message)
+
+    async def send(self, message_text):
+        mentions = []
+        for string in re.split("[ \t]{1,1000}", message_text):
+            if string in player_mention_map:
+                mentions.append(player_mention_map[string])
+        message = Message(client.user, self, message_text, mentions)
+        self.message_history.append(RecordedMessage(message))
 
 class Guild:
     def __init__(self):
