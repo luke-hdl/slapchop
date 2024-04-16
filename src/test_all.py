@@ -1,6 +1,4 @@
-import test_basic_input_functions
-import test_message_responder_statics
-import test_spoofer_resources
+from test import *
 import asyncio
 
 async def test():

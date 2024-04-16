@@ -1,6 +1,6 @@
-from framework.test_framework import *
-from framework.spoof_factory import *
-from src.message_responder import MessageResponder
+from .framework.test_framework import *
+from .framework.spoof_factory import *
+from run.message_responder import MessageResponder
 
 spoof = None
 responder = None

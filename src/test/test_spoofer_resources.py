@@ -1,5 +1,5 @@
-from framework.test_framework import *
-from framework.spoof_factory import *
+from .framework.test_framework import *
+from .framework.spoof_factory import *
 
 spoof = None
 

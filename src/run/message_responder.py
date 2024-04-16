@@ -1,4 +1,5 @@
 import threading
+import re
 from random import randint
 from .challenge import *
 from .exceptions import *

@@ -1,5 +1,5 @@
-from framework.test_framework import *
-from src.utils import *
+from .framework.test_framework import *
+from run import *
 
 @test
 async def test_input_equality():

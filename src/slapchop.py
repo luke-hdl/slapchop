@@ -1,5 +1,5 @@
 import discord
-from message_responder import MessageResponder
+from run import MessageResponder
 
 TOKEN = 'YOURTOKEN'
 TIMEOUT = 1200  # in seconds

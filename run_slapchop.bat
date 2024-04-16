@@ -1,7 +1,9 @@
 #!/bin/bash
 rm -rf out/
 mkdir out
-cp -r src/ out/
+mkdir out/src
+cp -r src/run out/src/run
+touch out/src/slapchop-do-not-commit.py
 
 set `cat TOKEN`
 while IFS= read -r line
