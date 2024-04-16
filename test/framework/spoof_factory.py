@@ -1,4 +1,4 @@
-from spoofer_classes import *
+from .spoofer_classes import *
 
 def setup_basic_spoof():
     users = [User("beckett"), User("vykos")]

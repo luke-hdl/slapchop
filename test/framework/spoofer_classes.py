@@ -27,7 +27,7 @@ class User:
     def __init__(self, display_name):
         self.channel = Channel(None)
         self.display_name = display_name
-        self.mention = "<" + int(hash(display_name)) + ">" #we use a different means for these
+        self.mention = "<" + str(int(hash(display_name))) + ">" #we use a different means for these
 
     def send(self, message):
         self.channel.send(message)

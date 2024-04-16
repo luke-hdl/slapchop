@@ -1,0 +1,7 @@
+import test_basic_input_functions
+import test_message_responder_statics
+import test_spoofer_resources
+
+test_basic_input_functions.run_tests()
+test_spoofer_resources.run_tests()
+test_message_responder_statics.run_tests()

@@ -33,8 +33,28 @@ def test(fn):
             log(traceback.format_exc())
     return wrapper
 
-def expect(left, right, on_fail):
+
+def expect(bool_value, on_fail):
+    if bool_value:
+        return True
+    else:
+        raise TestError(on_fail)
+
+def expect_not(bool_value, on_fail):
+    if not bool_value:
+        return True
+    else:
+        raise TestError(on_fail)
+
+
+def expect_equal(left, right, on_fail):
     if left == right:
+        return True
+    else:
+        raise TestError(on_fail)
+
+def expect_not_equal(left, right, on_fail):
+    if left != right:
         return True
     else:
         raise TestError(on_fail)
