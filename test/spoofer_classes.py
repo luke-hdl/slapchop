@@ -27,12 +27,18 @@ class User:
     def __init__(self, display_name):
         self.channel = Channel(None)
         self.display_name = display_name
-        self.mention = "WOW IT IS " + display_name #we use a different means for these
+        self.mention = "<" + int(hash(display_name)) + ">" #we use a different means for these
+
+    def send(self, message):
+        self.channel.send(message)
 
 class Channel:
     def __init__(self, guild):
         self.guild = guild
         self.message_history = []
+
+    def send(self, message):
+        message_history.append(RecordedMessage(message))
 
 class Guild:
     def __init__(self):

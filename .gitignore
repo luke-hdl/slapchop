@@ -6,6 +6,7 @@ TOKEN
 *~
 *#
 *__pycache__*
+*.swp
 
 #sometimes I use pycharm, but I don't really want to commit my .idea-related stuff, since I don't always use pycharm.
 .idea/
