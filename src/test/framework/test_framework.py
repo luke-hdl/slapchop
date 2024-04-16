@@ -36,6 +36,8 @@ def test(fn):
             return False
     return wrapper
 
+def error(message):
+    raise TestError(message)
 
 def expect(bool_value, on_fail):
     if bool_value:
