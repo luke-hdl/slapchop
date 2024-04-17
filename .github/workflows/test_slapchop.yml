@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: 3.12 #install the python needed
       - name: checkout repo content
-        uses: actions/checkout@v2 # checkout the repository content to github runner.
+        uses: actions/checkout@v4.1.2 # checkout the repository content to github runner.
       - name: execute test script # run file
         run: |
           python src/test_all.py
