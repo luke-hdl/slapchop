@@ -18,6 +18,4 @@ jobs:
         uses: actions/checkout@v2 # checkout the repository content to github runner.
       - name: execute test script # run file
         run: |
-          ls
-          python src/test_framework.py
-
+          python src/test_all.py
