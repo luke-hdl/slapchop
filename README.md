@@ -1,4 +1,7 @@
 # SlapChop
+
+[![Test Slapchop](https://github.com/luke-hdl/slapchop/actions/workflows/test_slapchop.yml/badge.svg?branch=main)](https://github.com/luke-hdl/slapchop/actions/workflows/test_slapchop.yml)
+
 A simple Discord bot for strategic rock-paper-scissors (or variants), for online roleplaying games following World of Darkness: Mind's Eye Theater (and similar) rulesets.
 
 SlapChop permits players to secretly select their preferred chop. When all players in a challenge have made their selection, everyone's selections are revealed. Challenges can include mass challenges.
@@ -36,59 +39,29 @@ This makes a static challenge, as in the MET system. It has even odds of "Win", 
 
 ### Contested Challenge
 #### Issuing the challenge
-> @SlapChop#0552 challenge [name] [@user 1]...[@user n]
+> @SlapChop#0552 challenge [@user 1]...[@user n]
 
-> @Your Buddy SlapChop challenge [name] [@user 1]...[@user n]
+> @Your Buddy SlapChop challenge [@user 1]...[@user n]
 
-where name is a name for your challenge that no one else in your channel is currently using, and the list of users are mentioned users you want to be part of the challenge. You are automatically part of any challenge you issue. So, for instance, if I wanted to challenge my friend "Wumpus", I might challenge: 
+You are automatically considered the aggressor, and anyone else a defender. So, for instance, if I wanted to challenge my friend "Wumpus", I might challenge: 
 
-> @Your Buddy SlapChop challenge fight @Wumpus
+> @Your Buddy SlapChop challenge @Wumpus
 
-Your channel name (in this case, fight) can be up to 20 letters long. It can include default emoji (although they count for as many letters as their Discord internal name takes up, e.g. 🐱 is :cat:, so it's 5). It cannot include server emoji. You can use quotation marks for a multi-word challenge, for instance, "Voice of Madness".
+When you send this message, everyone involved will receive a DM. If someone's DM settings block SlapChop from DMing them, they can DM SlapChop
 
-When you send this message, SlapChop will reply: 
+> hey
 
-> Challenge opened between: @yourCoolNick - @Wumpus - all of whom should DM me with the following:  
-> reply fight-0 response  
-> You can also include a bid! After your response, include "bidding" at the end, then your trait bid, like this:  
-> reply test-0 response bidding x  
-> replacing the word response with your response (like rock, paper, scissors, or bomb), and the x with the number of traits you're bidding!  
-> Bids will only be revealed if there's at least one tie where both the aggressor and at least one tying defending players submitted a bid. In that case, the aggressor's bid is revealed, and so is whether any tying defenders bid more or less.
-
-The number given after the code is used by SlapChop to keep track of what server and channel the challenge came from. 
+and it will let them know their challenge status. 
 
 #### Replying to a challenge
 After this, each user in the challenge privately messages SlapChop with how they want to respond. SlapChop doesn't currently keep track of whether a response is a valid RPS option; it is the responsibility of players to respond appropriately. This lets SlapChop respect unusual RPS variants, like Rock-Paper-Scissors-Bomb or Rock-Paper-Scissors-Lizard-Spock. 
 
 For instance, I might DM: 
-> reply fight-0 rock
+> rock
 
 while Wumpus responds:
-> reply fight-0 paper
+> paper
 
-SlapChop will reply to each of our messages to let us know our response was recorded, and will let whoever answers last know that the results are being posted. Your response can be multiple words if you use quotation marks, though ties need to be identical - so "rock" won't match "rock (dodge)".
+SlapChop will then ask for a bid. The MET system is used for bid behavior. If everyone bids, and at least one player threw the same thing as the aggressor, the aggressor's bid is revealed, and so is whether anyone who tied bid more, less, or the same. The bid does need to be a whole number under 1,000,000. If you have over 1,000,000 traits in the MET system, something very silly has happened. 
 
-Optionally, players can bid, using this syntax: 
-> reply fight-0 rock bidding 10
-
-replacing 10 with whatever your bid is. The bid must be an integer. The MET system is used for bid behavior. If the aggressor (the person who made the challenge) bids, and at least one other person who picked the same thing to throw bids, the aggressor's bid is revealed, and so is whether anyone who tied bid more, less, or the same.
-
-Once all challenged players have replied, SlapChop will post in the same channel the challenge was made. The results will look like this: 
-> Challenge fight-0 is complete! @yourCoolNick throws rock!  
-> @Wumpus throws paper!
-
-at which point everyone can see that Wumpus has won the RPS game. If both player bid, this will instead look like, e.g.:
-> Challenge test-0 is complete! @yourCoolNick throws paper! A tie occurred; they bid 13.  
-> @Wumpus throws paper!  
-> It's a tie! @Wumpus bid: the same number! (Remember, ties typically go to the defender, so this should probably be treated as if they'd bid more.)
-
-
-## Upcoming Features
-### User-oriented
-* Automatically determining winners for RPS and RPS+Bomb variants in 2-player challenges.
-* Better mass-bid features, such as declaring a single aggressor and many defenders, to extend these features.
-* Built-in help functionality. 
-
-### Developer-oriented
-SlapChop is not designed for very heavy usage; there are some niche circumstances that could cause multithreading issues during heavy use, and its RAM performance is a little questionable. Upcoming updates will improve this. 
-
+Once all challenged players have replied, SlapChop will send everyone a DM letting them know that the challenge is completed, then post the results in the channel where the challenge was issued. 
