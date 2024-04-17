@@ -14,6 +14,7 @@ class Challenge:
         self.time_of_issue = time.time()
         self.responses = {aggressor: Response(aggressor, Role.AGGRESSOR)}
         self.aggressor_response = self.responses[aggressor]
+        self.total_rounds = 0
         for defender in defenders:
             self.responses[defender] = Response(defender, Role.DEFENDER)
 

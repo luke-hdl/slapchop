@@ -116,6 +116,7 @@ class MessageResponder:
             retest = "Not Specified"
             if len(tokenized_message_text) >= 3:
                 retest = tokenized_message_text[2]
+            await channel.send("Your retest round has begun!")
             await self.begin_retest(message.author, retest)
             return
 
@@ -247,6 +248,7 @@ class MessageResponder:
 
     async def begin_retest(self, player, retest):
         challenge = self.challenges_by_player.get(player)
+        challenge.total_rounds += 1
         challenge.responses[player].log_retest(retest)
         for player in challenge.responses.keys():
             challenge.responses[player].begin_retest()
@@ -263,18 +265,42 @@ class MessageResponder:
             response_2 = challenge.responses[players[1]]
             await players[0].send("This round of chops is done! Go to the channel to see results or rebid.")
             await players[1].send("This round of chops is done! Go to the channel to see results or rebid.")
+            players_who_may_retest = []
             if automatically_determine_winner(response_1.response, response_2.response) == RecognizedResult.PLAYER_1_WIN:
                 challenge.responses[players[0]].reset_retest_status()
                 challenge.responses[players[1]].reset_retest_status()
                 challenge.responses[players[0]].decline_retest() #Winner automatically denies.
+                players_who_may_retest.append(players[1])
             elif automatically_determine_winner(response_1.response, response_2.response) == RecognizedResult.PLAYER_1_LOSS:
                 challenge.responses[players[0]].reset_retest_status()
                 challenge.responses[players[1]].reset_retest_status()
                 challenge.responses[players[1]].decline_retest() #Winner automatically denies.
+                players_who_may_retest.append(players[0])
             else:
                 challenge.responses[players[0]].reset_retest_status()
                 challenge.responses[players[1]].reset_retest_status()
-            await challenge.channel.send("Anyone who didn't automatically get found winner and would like to retest may post \r\n\r\n " + self.client.user.mention + " retest ability\r\n\r\n now (replacing ability with the nature of the retest - like Brawl, Lucky, or Orisha's Fortune.\r\nIf you don't want to retest, please instead post \r\n\r\n" + self.client.user.mention + " decline\r\n\r\n so that I know the challenge is over.")
+                players_who_may_retest.append(players[0])
+                players_who_may_retest.append(players[1])
+
+            if challenge.total_rounds == 0: #More detailed guidance on the first retest round.
+                mentions = ""
+                for retesting_player in players_who_may_retest:
+                    mentions += retesting_player.mention + " "
+                await challenge.channel.send(mentions + "- you may retest if you'd like by posting: \r\n\r\n " + self.client.user.mention + " retest ability\r\n\r\n now (replacing ability with the nature of the retest - like Brawl or Lucky.\r\nIf you don't want to retest, please instead post \r\n\r\n" + self.client.user.mention + " decline\r\n\r\n")
+            else:
+                mentions = "Players who can retest: "
+                for retesting_player in players_who_may_retest:
+                    mentions += retesting_player.mention
+                    retest_response = challenge.responses[retesting_player]
+                    if len(retest_response.retests) == 0:
+                        mentions += " (No retests yet.)"
+                    else:
+                        mentions += " (Used retests this challenge: "
+                        for retest in retest_response.retests:
+                            mentions += retest + " x" + str(retest_response.retests[retest]) + " "
+                        mentions += ")"
+                    mentions += " - "
+                await challenge.channel.send(mentions + "retest or decline now.")
 
     async def finalize_challenge(self, challenge):
         with self.alter_challenges_lock:
