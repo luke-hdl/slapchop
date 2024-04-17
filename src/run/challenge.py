@@ -29,6 +29,12 @@ class Challenge:
                 return False
         return True
 
+    def everyone_declined_retests(self):
+        for response in self.responses.values():
+            if not response.declined_to_retest:
+                return False
+        return True
+
     def did_everyone_bid(self):
         for response in self.responses.values():
             if response.bid is None:
@@ -84,6 +90,8 @@ class Response:
         self.complete = False
         self.response = None
         self.bid = None
+        self.declined_to_retest = False
+        self.retests = {} #Map of strings to the number of times they've been used.
 
     def get_response_description(self, include_bid_information, aggressor_response):
         response = "{} ({}) threw: {}".format(self.responder.mention, self.role.get_as_readable(), self.response)
@@ -99,10 +107,22 @@ class Response:
                     response += " and tied, bidding more than the aggressor"
         response += "\r\n"
         return response
+
     def set_response(self, player_response):
         if self.response is not None:
             raise ResponderHasAlreadyRespondedException
         self.response = player_response
+
+    def decline_retest(self):
+        self.declined_to_retest = True
+
+    def reset_retest_status(self):
+        self.declined_to_retest = False
+
+    def log_retest(self, retest):
+        if retest not in self.retests:
+            self.retests[retest] = 0
+        self.retests[retest] += 1
 
     def get_response_status(self):
         if self.complete:
