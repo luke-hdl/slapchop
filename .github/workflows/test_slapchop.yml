@@ -1,0 +1,21 @@
+name: Test Slapchop
+
+on:
+  [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout repo content
+        uses: actions/checkout@v4.1.2 # checkout the repository content to github runner.
+      - name: setup python
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: 3.12 #install the python needed
+      - name: checkout repo content
+        uses: actions/checkout@v2 # checkout the repository content to github runner.
+      - name: execute test script # run file
+        run: |
+          python src/test_all.py
