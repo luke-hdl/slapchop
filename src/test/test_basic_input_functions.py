@@ -10,7 +10,6 @@ async def test_input_equality():
     expect_not(equal_inputs("vampire", "werewolf"), "Inequality not functional.")
     expect_not(equal_inputs("vampire", None), "Inequality with None not functional.")
     expect(equal_inputs(None, None), "Equality with None not functional.")
-    error("Test error for workflows.")
 
 @test
 async def test_input_list_equality():
