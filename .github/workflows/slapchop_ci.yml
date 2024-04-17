@@ -2,7 +2,7 @@ name: SlapChop CI
 on:
   push:
     branches:
-      github.ref == 'refs/heads/main'
+      - main
 jobs:
   deploy:
     name: "Deploy to Rhya"
