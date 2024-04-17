@@ -11,14 +11,20 @@ class LogMessageType(Enum):
     FAILED = 2
     INFO = 3
 
+test_results = {LogMessageType.SUCCEED: [], LogMessageType.FAILED: [], LogMessageType.INFO: []}
+
 def log(message, type=LogMessageType.INFO):
     match type:
         case LogMessageType.SUCCEED:
             print("\033[1;32;40m SUCCESS: " + message)
+            test_results[LogMessageType.SUCCEED].append(message)
         case LogMessageType.FAILED:
             print("\033[1;31;40m FAILED: " + message)
+            test_results[LogMessageType.FAILED].append(message)
         case LogMessageType.INFO:
+            test_results[LogMessageType.INFO].append(message)
             print("\033[1;34;40m INFO: " + message)
+            test_results[LogMessageType.INFO].append(message)
 
 def test(fn):
     @functools.wraps(fn)
