@@ -118,6 +118,12 @@ class Response:
 
     def reset_retest_status(self):
         self.declined_to_retest = False
+        self.complete = False
+
+    def begin_retest(self):
+        self.response = None
+        self.bid = None
+        self.complete = False
 
     def log_retest(self, retest):
         if retest not in self.retests:
@@ -161,3 +167,4 @@ class ResponseStatus(Enum):
     WAITING_FOR_RESPONSE = 1
     WAITING_FOR_BID = 2
     COMPLETE = 3
+    WAITING_ON_RETEST = 4

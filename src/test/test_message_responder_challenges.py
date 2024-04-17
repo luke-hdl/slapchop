@@ -28,14 +28,21 @@ async def spoof_a_basic_challenge():
     await beckett.channel.spoof_send(Message(beckett, beckett.channel, "No", []), responder)
     expect(len(beckett.channel.message_history) == 5, "Beckett didn't get a reply back when he declined to bid.")
 
-    await vykos.channel.spoof_send(Message(vykos, vykos.channel, "rock", []), responder)
-    expect(len(vykos.channel.message_history) == 3, "Vykos didn't get a reply back when they threw rock.")
+    await vykos.channel.spoof_send(Message(vykos, vykos.channel, "paper", []), responder)
+    expect(len(vykos.channel.message_history) == 3, "Vykos didn't get a reply back when they threw paper.")
     await vykos.channel.spoof_send(Message(vykos, vykos.channel, "No", []), responder)
     expect(len(vykos.channel.message_history) == 6, "Vykos declining to bid didn't complete the challenge.")
     expect(len(beckett.channel.message_history) == 6, "Beckett wasn't alerted that the challenge was done.")
-    expect(len(channel.message_history) == 3, "Challenge results weren't posted.")
-    expect(vykos in channel.message_history[-1].mentions, "Vykos wasn't mentioned in the challenge results.")
-    expect(beckett in channel.message_history[-1].mentions, "Beckett wasn't mentioned in the challenge results.")
+    expect(len(channel.message_history) == 4, "Challenge results weren't posted.")
+    expect(vykos in channel.message_history[2].mentions, "Vykos wasn't mentioned in the challenge results.")
+    expect(beckett in channel.message_history[2].mentions, "Beckett wasn't mentioned in the challenge results.")
+    expect(responder.challenges_by_player[vykos].responses[vykos].declined_to_retest, "Vykos didn't automatically decline to retest after winning the chops.")
+
+    await channel.spoof_send(Message(beckett, channel, spoof.client.user.mention + " decline", [spoof.client.user]), responder)
+    expect(len(channel.message_history) == 7, "Challenge wasn't finalized by Beckett's declining.")
+    expect(beckett not in responder.challenges_by_player, "Beckett remained in the challenge after it was done.")
+    expect(vykos not in responder.challenges_by_player, "Vykos remained in the challenge after it was done.")
+
 
 async def run_tests():
     await set_up_spoof()
