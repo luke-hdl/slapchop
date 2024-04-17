@@ -92,7 +92,7 @@ class MessageResponder:
 
         return clean_split
 
-    def get_self_mention(self, ):
+    def get_self_mention(self):
         return self.client.user.mention
 
     async def process_guild_message_text_from_player(self, channel, message):
@@ -100,6 +100,43 @@ class MessageResponder:
             return  # By default, SlapChop shouldn't see messages that it doesn't ask for, but it's better safe than sorry.
         message_text = message.content
         tokenized_message_text = re.split("[ \t]{1,1000}", message_text)
+        if equal_inputs(tokenized_message_text[1], "retest"):
+            if message.author not in self.challenges_by_player:
+                await channel.send(
+                    message.author.mention + ", you're not in a challenge!")
+                return
+            if self.challenges_by_player[message.author].channel != message.channel:
+                await channel.send(
+                    message.author.mention + ", I can only understand retests in the channels the challenge was first posted in. Please send me another one.")
+                return
+            if self.challenges_by_player[message.author].responses[message.author].declined_to_retest:
+                await channel.send(
+                    message.author.mention + ", you've already declined to retest. (Or you won the challenge outright, in which case you don't need to!)")
+                return
+            retest = "Not Specified"
+            if len(tokenized_message_text) >= 3:
+                retest = tokenized_message_text[2]
+            await channel.send("Your retest round has begun!")
+            await self.begin_retest(message.author, retest)
+            return
+
+        if equal_inputs(tokenized_message_text[1], "decline"):
+            if message.author not in self.challenges_by_player:
+                await channel.send(
+                    message.author.mention + ", you're not in a channel!")
+                return
+            if self.challenges_by_player[message.author].channel != message.channel:
+                await channel.send(
+                    message.author.mention + ", I can only understand retests (including declining them) in the channels the challenge was first posted in. Please send me another one.")
+                return
+            if self.challenges_by_player[message.author].responses[message.author].declined_to_retest:
+                await channel.send(
+                    message.author.mention + ", you've already declined to retest. (Or you won the challenge outright, in which case you don't need to!)")
+                return
+            await channel.send(message.author.mention + ", I've noted you declined to retest.")
+            await self.decline_retest(message.author)
+            return
+
         if equal_inputs(tokenized_message_text[1], "challenge"):
             if message.author in self.challenges_by_player:
                 await channel.send(
@@ -185,6 +222,10 @@ class MessageResponder:
                         "Your bid has been recorded! You'll receive a DM and a mention in the challenge channel when everyone has responded.")
                 case ResponseStatus.COMPLETE:
                     raise ResponderHasAlreadyRespondedException  # lets us fold this case into the error handling.
+                case ResponseStatus.WAITING_ON_RETEST:
+                    await channel.send(
+                        "Hey there! I'm waiting to hear on players for whether they'd like to retest. You can only request a retest in the channel your challenge was made in, so that everyone can see it. If people aren't responding, and you'd like to leave the challenge, you can send me the word 'leave' to leave the challenge. (This cancels the challenge for everyone, though!)")
+
         except ResponderNotInChallengeException:
             await channel.send(
                 "Hey there! You're not in a challenge right now - you can only issue challenges in a channel that you, I, and whoever you're challenging all have access to. If you'd like more information, please send me the word 'help'.")
@@ -200,20 +241,77 @@ class MessageResponder:
 
         await self.process_challenge_status_for_player(player)
 
+    async def decline_retest(self, player):
+        challenge = self.challenges_by_player.get(player)
+        challenge.responses[player].decline_retest()
+        await self.process_challenge_status_for_player(player)
+
+    async def begin_retest(self, player, retest):
+        challenge = self.challenges_by_player.get(player)
+        challenge.total_rounds += 1
+        challenge.responses[player].log_retest(retest)
+        for player in challenge.responses.keys():
+            challenge.responses[player].begin_retest()
+            await player.send("A retest has begun for your challenge! Please submit your bid.")
+
     async def process_challenge_status_for_player(self, player):
         challenge = self.challenges_by_player.get(player)
+        if challenge is not None and (len(challenge.get_players_in_challenge()) > 2 or challenge.everyone_declined_retests()):
+            await self.finalize_challenge(challenge)
         if challenge is not None and challenge.is_complete():
-            await self.complete_challenge(challenge)
+            await self.post_challenge_results(challenge)
+            players = list(challenge.get_players_in_challenge())
+            response_1 = challenge.responses[players[0]]
+            response_2 = challenge.responses[players[1]]
+            await players[0].send("This round of chops is done! Go to the channel to see results or rebid.")
+            await players[1].send("This round of chops is done! Go to the channel to see results or rebid.")
+            players_who_may_retest = []
+            if automatically_determine_winner(response_1.response, response_2.response) == RecognizedResult.PLAYER_1_WIN:
+                challenge.responses[players[0]].reset_retest_status()
+                challenge.responses[players[1]].reset_retest_status()
+                challenge.responses[players[0]].decline_retest() #Winner automatically denies.
+                players_who_may_retest.append(players[1])
+            elif automatically_determine_winner(response_1.response, response_2.response) == RecognizedResult.PLAYER_1_LOSS:
+                challenge.responses[players[0]].reset_retest_status()
+                challenge.responses[players[1]].reset_retest_status()
+                challenge.responses[players[1]].decline_retest() #Winner automatically denies.
+                players_who_may_retest.append(players[0])
+            else:
+                challenge.responses[players[0]].reset_retest_status()
+                challenge.responses[players[1]].reset_retest_status()
+                players_who_may_retest.append(players[0])
+                players_who_may_retest.append(players[1])
 
-    async def complete_challenge(self, challenge):
+            if challenge.total_rounds == 0: #More detailed guidance on the first retest round.
+                mentions = ""
+                for retesting_player in players_who_may_retest:
+                    mentions += retesting_player.mention + " "
+                await challenge.channel.send(mentions + "- you may retest if you'd like by posting: \r\n\r\n " + self.client.user.mention + " retest ability\r\n\r\n now (replacing ability with the nature of the retest - like Brawl or Lucky.\r\nIf you don't want to retest, please instead post \r\n\r\n" + self.client.user.mention + " decline\r\n\r\n")
+            else:
+                mentions = "Players who can retest: "
+                for retesting_player in players_who_may_retest:
+                    mentions += retesting_player.mention
+                    retest_response = challenge.responses[retesting_player]
+                    if len(retest_response.retests) == 0:
+                        mentions += " (No retests yet.)"
+                    else:
+                        mentions += " (Used retests this challenge: "
+                        for retest in retest_response.retests:
+                            mentions += retest + " x" + str(retest_response.retests[retest]) + " "
+                        mentions += ")"
+                    mentions += " - "
+                await challenge.channel.send(mentions + "retest or decline now.")
+
+    async def finalize_challenge(self, challenge):
         with self.alter_challenges_lock:
             for notify_player in challenge.get_players_in_challenge():
                 self.challenges_by_player.pop(notify_player)
                 try:
                     await notify_player.send(
-                        "Your challenge has been completed! See the channel it was posted in for results!")
+                        "Your challenge has been completed, and no one has decided to retest! I'm posting a copy of the final challenge results for everyone.")
                 except:
                     pass
+
         await self.post_challenge_results(challenge)
         del challenge
 
@@ -281,7 +379,7 @@ class MessageResponder:
         print(f'We have logged in as {self.client.user}')
 
     async def on_message(self, message):
-        if message.author == self.client.user:
+        if message.author.bot:
             return
         await self.expire_challenges()
         if message.channel.guild is not None:

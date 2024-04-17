@@ -15,6 +15,7 @@ class SpoofCord:
 class Client:
     def __init__(self, user):
         self.user = user
+        user.bot = True
 
 class Message:
     def __init__(self, author, channel, content, mentions):
@@ -36,6 +37,7 @@ class User:
         self.display_name = display_name
         self.mention = "<" + str(int(hash(display_name))) + ">"
         player_mention_map[self.mention] = self
+        self.bot = False
 
     async def send(self, message):
         await self.channel.send(message)

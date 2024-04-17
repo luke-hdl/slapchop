@@ -14,6 +14,7 @@ class Challenge:
         self.time_of_issue = time.time()
         self.responses = {aggressor: Response(aggressor, Role.AGGRESSOR)}
         self.aggressor_response = self.responses[aggressor]
+        self.total_rounds = 0
         for defender in defenders:
             self.responses[defender] = Response(defender, Role.DEFENDER)
 
@@ -26,6 +27,12 @@ class Challenge:
     def is_complete(self):
         for response in self.responses.values():
             if not response.complete:
+                return False
+        return True
+
+    def everyone_declined_retests(self):
+        for response in self.responses.values():
+            if not response.declined_to_retest:
                 return False
         return True
 
@@ -84,6 +91,8 @@ class Response:
         self.complete = False
         self.response = None
         self.bid = None
+        self.declined_to_retest = False
+        self.retests = {} #Map of strings to the number of times they've been used.
 
     def get_response_description(self, include_bid_information, aggressor_response):
         response = "{} ({}) threw: {}".format(self.responder.mention, self.role.get_as_readable(), self.response)
@@ -99,10 +108,28 @@ class Response:
                     response += " and tied, bidding more than the aggressor"
         response += "\r\n"
         return response
+
     def set_response(self, player_response):
         if self.response is not None:
             raise ResponderHasAlreadyRespondedException
         self.response = player_response
+
+    def decline_retest(self):
+        self.declined_to_retest = True
+
+    def reset_retest_status(self):
+        self.declined_to_retest = False
+        self.complete = False
+
+    def begin_retest(self):
+        self.response = None
+        self.bid = None
+        self.complete = False
+
+    def log_retest(self, retest):
+        if retest not in self.retests:
+            self.retests[retest] = 0
+        self.retests[retest] += 1
 
     def get_response_status(self):
         if self.complete:
@@ -141,3 +168,4 @@ class ResponseStatus(Enum):
     WAITING_FOR_RESPONSE = 1
     WAITING_FOR_BID = 2
     COMPLETE = 3
+    WAITING_ON_RETEST = 4
