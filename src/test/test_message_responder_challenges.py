@@ -1,6 +1,7 @@
 from .framework.test_framework import *
 from .framework.spoof_factory import *
 from run.message_responder import MessageResponder
+from time import sleep
 
 spoof = None
 responder = None
@@ -43,7 +44,24 @@ async def spoof_a_basic_challenge():
     expect(beckett not in responder.challenges_by_player, "Beckett remained in the challenge after it was done.")
     expect(vykos not in responder.challenges_by_player, "Vykos remained in the challenge after it was done.")
 
+@test
+async def test_expiration():
+    responder.timeout = 1
+    beckett = spoof.users[0]
+    vykos = spoof.users[1]
+    beckett.channel.message_history = []
+    vykos.channel.message_history = []
+    channel = spoof.guild_channels[0]
+    message = Message(beckett, channel, spoof.client.user.mention + " challenge " + vykos.mention, [spoof.client.user, vykos])
+    await channel.spoof_send(message, responder)
+    sleep(1)
+    empty_at = Message(beckett, channel, spoof.client.user.mention, [spoof.client.user])
+    await channel.spoof_send(empty_at, responder)
+    expect(len(responder.challenges_by_player.keys()) == 0, "Challenge failed to expire.")
+    expect(len(beckett.channel.message_history) == 2, "Beckett was not alerted that his challenge expired.")
+    expect(len(vykos.channel.message_history) == 2, "Vykos was not alerted that Beckett's challenge expired.")
 
 async def run_tests():
     await set_up_spoof()
     await spoof_a_basic_challenge()
+    await test_expiration()

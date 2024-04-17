@@ -100,6 +100,11 @@ class MessageResponder:
             return  # By default, SlapChop shouldn't see messages that it doesn't ask for, but it's better safe than sorry.
         message_text = message.content
         tokenized_message_text = re.split("[ \t]{1,1000}", message_text)
+
+        if len(tokenized_message_text) < 2:
+            await self.send_help_response(channel)
+            return
+        
         if equal_inputs(tokenized_message_text[1], "retest"):
             if message.author not in self.challenges_by_player:
                 await channel.send(
