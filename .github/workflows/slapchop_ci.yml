@@ -1,5 +1,5 @@
 name: SlapChop CI
-on: [push, pull_request]
+on: [push]
 jobs:
   deploy:
     name: "Deploy to Rhya"
