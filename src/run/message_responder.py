@@ -92,7 +92,7 @@ class MessageResponder:
 
         return clean_split
 
-    def get_self_mention(self, ):
+    def get_self_mention(self):
         return self.client.user.mention
 
     async def process_guild_message_text_from_player(self, channel, message):
@@ -379,7 +379,7 @@ class MessageResponder:
         print(f'We have logged in as {self.client.user}')
 
     async def on_message(self, message):
-        if message.author == self.client.user:
+        if message.author.bot:
             return
         await self.expire_challenges()
         if message.channel.guild is not None:

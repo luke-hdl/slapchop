@@ -15,21 +15,31 @@ async def set_up_spoof():
 async def responder_test_basic_static():
     beckett = spoof.users[0]
     channel = spoof.guild_channels[0]
-    message = Message(beckett, channel, spoof.client.user.mention + " static", [spoof.client.user]) #We don't actually spoof mentions correctly... I'll update that later if needed.
+    message = Message(beckett, channel, spoof.client.user.mention + " static", [spoof.client.user])
     await channel.spoof_send(message, responder)
     expect(len(channel.message_history) >= 2, "A message back was not received.")
     expect(channel.message_history[1].content.startswith(beckett.mention + ", you"), "Something other than a static occurred. Message: " + channel.message_history[1].content)
 
 @test
+async def responder_test_static_from_bot():
+    channel = spoof.guild_channels[0]
+    channel.message_history = []
+    beckett = spoof.users[0]
+    beckett.bot = True #oh no robo beckett
+    message = Message(beckett, channel, spoof.client.user.mention + " static", [spoof.client.user])
+    await channel.spoof_send(message, responder)
+    expect(len(channel.message_history) == 1, "Robots shouldn't get a response - even if they're Gangrel.")
+    
+@test
 async def responder_test_statistical_bias():
     wins = 0
     losses = 0
     ties = 0
-
     tries = 0
+    beckett = spoof.users[0]
+    beckett.bot = False #he's cured :)
     while tries < 1000:
         tries += 1
-        beckett = spoof.users[0]
         channel = spoof.guild_channels[0]
         message = Message(beckett, channel, spoof.client.user.mention + " static", [spoof.client.user])
         await channel.spoof_send(message, responder)
@@ -50,4 +60,5 @@ async def responder_test_statistical_bias():
 async def run_tests():
     await set_up_spoof()
     await responder_test_basic_static()
+    await responder_test_static_from_bot()
     await responder_test_statistical_bias()
